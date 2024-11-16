@@ -1,0 +1,158 @@
+plugins {
+    //java plugin include assemble, build, jar, javadoc tasks
+    id 'java'
+    id 'checkstyle'
+    id 'jacoco'
+    id 'maven-publish'
+    id "signing"
+}
+
+// group used for publishing to maven central - io.github.sjchin88
+group = 'io.github.sjchin88.cs6510.f24'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+java {
+    sourceCompatibility = 17
+    targetCompatibility = 17
+    withJavadocJar()
+    withSourcesJar()
+}
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+checkstyle {
+    toolVersion = "10.18.2"
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+}
+
+javadoc {
+    doLast {
+        String fixedBuildDir = buildDir.toString().replace('\\', '/')
+        println "file:///$fixedBuildDir/docs/javadoc/index.html"
+    }
+}
+jacoco {
+    toolVersion = "0.8.12"
+}
+jacocoTestReport {
+    reports {
+        html.destination file("${buildDir}/jacocoHtml")
+    }
+    doLast {
+        String fixedBuildDir = buildDir.toString().replace('\\', '/')
+        println "file:///$fixedBuildDir/jacocoHtml/index.html"
+    }
+}
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                // minimum percentage of code coverage
+                minimum = 0.7
+            }
+        }
+        rule {
+            enabled = false
+            element = 'CLASS'
+            includes = ['org.gradle.*']
+            limit {
+                counter = 'LINE'
+                value = 'TOTALCOUNT'
+                maximum = 0.3
+            }
+        }
+    }
+}
+// Fail the build if code coverage isn't high enough
+check.dependsOn jacocoTestCoverageVerification
+// Run code coverage after tests run
+jacocoTestReport.mustRunAfter test
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+task doAll {
+    // Runs check. Imported by checkstyle plugin
+    dependsOn check
+    // Runs a java build. Imported from the java plugin
+    dependsOn build
+    // dependsOn jar
+    // Runs all the tests. Imported from the java plugin.
+    dependsOn test
+    // Runs java doc. Imported from the java plugin
+    dependsOn javadoc
+    println 'all done!'
+}
+
+ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+
+publishing {
+    repositories {
+        // we will publish to build/repos then upload the zipped folder to maven central repository
+        maven {
+            def releaseRepo = layout.buildDirectory.dir('repos/releases')
+            def snapshotRepo = layout.buildDirectory.dir('repos/snapshots')
+
+            //name = "OSSRH"
+            url = isReleaseVersion ? releaseRepo : snapshotRepo
+
+            /*credentials {
+                username = findProperty("ossrhUsername") ?: System.getenv("OSSRH_USERNAME")
+                password = findProperty("ossrhPassword") ?: System.getenv("OSSRH_PASSWORD")
+            }*/
+        }
+    }
+
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                groupId = 'io.github.sjchin88.cs6510.f24'
+                name = 'binary-tree'
+                description = 'Custom Binary Tree handler'
+                url = 'https://github.com/CS6510-SEA-F24/hw3-sjchin88'
+                packaging = 'jar' // jar is the default
+
+                // Your choosen license
+                // Use https://choosealicense.com/ to decide, if you need help.
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+
+                scm {
+                    url = 'scm:https://github.com/CS6510-SEA-F24/hw3-sjchin88'
+                    connection = 'scm:git://github.com/CS6510-SEA-F24/hw3-sjchin88.git'
+                    developerConnection = 'scm:git://github.com/CS6510-SEA-F24/hw3-sjchin88.git'
+                }
+
+                developers {
+                    developer {
+                        id = 'sjchin88'
+                        name = 'shiangjinchin'
+                        email = 'chin.shi@northeastern.edu'
+                        organizationUrl = 'https://github.com/CS6510-SEA-F24/'
+                    }
+                }
+            }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    sign(publishing.publications)
+}
+
+//tasks.withType(Sign) {
+//    onlyIf { isReleaseVersion }
+//}

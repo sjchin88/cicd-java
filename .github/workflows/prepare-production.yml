@@ -1,0 +1,183 @@
+# This workflow will perform the required action to ensure the
+# main branch is production ready
+
+name: Prepare_for_production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "oracle"
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Update permission for gradle wrapper
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      # Runs build
+      - name: Build with Gradle Wrapper
+        run: ./gradlew build
+
+      # Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Package
+          path: build/libs
+
+  # test only runs after build success
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "oracle"
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Update permission for gradle wrapper
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      # Runs test with jacoco coverage
+      - name: Test with Gradle Wrapper
+        run: ./gradlew test
+
+      # Upload test report
+      - name: Upload test and jacoco coverage report (html)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestWithJacocoCoverageResults
+          path: |
+            build/jacocoHtml
+            build/reports/tests
+
+  # Job checkstyle will check coding style and perform static analysis
+  checkstyle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "oracle"
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Update permission for gradle wrapper
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      # Runs checkstyle
+      - name: CheckStype with Gradle Wrapper
+        run: ./gradlew check
+
+      # Upload checkstyle report
+      - name: Upload checkstyle report (html)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CheckStyleReport
+          path: build/reports/checkstyle
+
+  # Javadoc run only after checkstyle success
+  javadoc:
+    needs: checkstyle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "oracle"
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Update permission for gradle wrapper
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      # Generate javadoc
+      - name: Generate Javadoc
+        run: ./gradlew javadoc
+
+      # Upload javadoc
+      - name: Upload javadoc
+        uses: actions/upload-artifact@v4
+        with:
+          name: Javadoc
+          path: build/docs/javadoc
+
+  # produce jar is the final job, only runs if test and javadoc completed
+  produce-jar:
+    needs: [test, javadoc]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "oracle"
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Update permission for gradle wrapper
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      # Generate a jar file
+      - name: Generate jar file
+        run: ./gradlew jar
+
+      # Upload jar
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: BinaryTreeCsj
+          path: build/libs
