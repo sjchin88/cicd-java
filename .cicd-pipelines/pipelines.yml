@@ -2,7 +2,7 @@
 # repo is set and cli does not specify repo and yml file by default
 # Test Pipeline for java repository
 global:
-    pipeline_name: "cicd_pipeline_java"
+    pipeline_name: "cicd-pipeline-java"
     docker: 
         registry: 'dockerhub'
         image: "gradle:latest"
