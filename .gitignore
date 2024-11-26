@@ -1,4 +1,6 @@
+myenv
 temp/
+t4-cicd-cs6510
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
